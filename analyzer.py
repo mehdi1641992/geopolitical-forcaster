@@ -1,10 +1,9 @@
 """
-analyzer.py - Generate comprehensive citizen forecasts using Google Gemini
+analyzer.py - Generate highly decisive regional forecasts using Google Gemini
 """
 import requests
 import os
 import json
-import re
 import datetime
 from dotenv import load_dotenv
 
@@ -12,20 +11,15 @@ PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 load_dotenv(os.path.join(PROJECT_ROOT, '.env'))
 
 def call_gemini(prompt: str, system: str = "") -> str:
-    """Call Google Gemini API."""
     api_key = os.environ.get("GEMINI_API_KEY")
-    if not api_key:
-        return '{"error": "GEMINI_API_KEY is missing."}'
-
     url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
 
     payload = {
-        "contents": [{
-            "parts": [{"text": f"System: {system}\n\nUser: {prompt}"}]
-        }],
+        "contents": [{"parts": [{"text": f"System: {system}\n\nUser: {prompt}"}]}],
         "generationConfig": {
             "temperature": 0.4,
-            "maxOutputTokens": 8000, # FIXED: Increased to prevent Parse Errors
+            "maxOutputTokens": 2048,
+            "responseMimeType": "application/json"
         }
     }
 
@@ -33,80 +27,114 @@ def call_gemini(prompt: str, system: str = "") -> str:
         resp = requests.post(url, json=payload, timeout=60)
         resp.raise_for_status()
         data = resp.json()
-        
         if 'candidates' in data and len(data['candidates']) > 0:
-            content = data['candidates'][0]['content']['parts'][0]['text']
-            print("  🤖 Model used: gemini-2.5-flash")
-            return content
-        else:
-            return '{"error": "Gemini returned empty response"}'
-            
+            return data['candidates'][0]['content']['parts'][0]['text']
+        return '{"error": "Gemini returned empty response"}'
     except Exception as e:
         print(f"  ⚠️ Gemini failed: {e}")
         return '{"error": "Gemini API failed"}'
 
 def extract_json(text: str) -> dict:
-    text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL)
-    text = re.sub(r"```json|```", "", text).strip()
-    match = re.search(r"\{.*\}", text, re.DOTALL)
-    if match:
-        try:
-            return json.loads(match.group())
-        except json.JSONDecodeError:
-            pass
-    return {"error": "JSON parse failed", "title": "Parse Error", "summary": "The AI generated a response that was too long or invalid."}
+    try:
+        return json.loads(text)
+    except Exception:
+        return {"error": "JSON parse failed", "title": "Parse Error", "summary": "Failed to parse API response."}
 
-SYSTEM_PROMPT = """You are a world-class geopolitical analyst and economic strategist. You write strictly for ordinary citizens. Be highly decisive. Give data-backed instructions on what people should do with their money, what goods they should stock up on, and what they should prepare for. Respond ONLY with a valid JSON object. No markdown. No preamble."""
+SYSTEM_PROMPT = """You are a highly decisive, data-driven geopolitical analyst. You write for ordinary citizens in specific regions, providing comprehensive, actionable advice. Tell them exactly what to expect, what to stock, what to avoid, and how to prepare. Respond ONLY in valid JSON."""
 
-def generate_geopolitical_forecast(news_digest: str) -> dict:
-    prompt = f"""Analyze this news and generate a highly comprehensive risk forecast for ordinary citizens.
+# --- THE 5 REGIONAL PROMPTS ---
 
+def generate_global_forecast(news_digest: str) -> dict:
+    prompt = f"""Analyze global news and generate an actionable geopolitical risk forecast for the World.
 {news_digest}
-
-Focus on actionable advice: What should normal people buy, sell, stock up on, or prepare for based on current wars, diplomacy, and inflation?
-
-Respond ONLY with this JSON:
+JSON Schema Requirement:
 {{
-  "title": "Global Geopolitical & Economic Action Plan",
-  "summary": "Write a highly comprehensive, 2-to-3 paragraph summary. Use data from the news. Be decisive about the current state of the world and how it is affecting the cost of living.",
-  "short_term": ["Next 2 weeks action 1 (e.g. Stock up on X because...)", "Action 2", "Action 3"],
-  "medium_term": ["1-3 months action 1 (e.g. Prepare for Y price hikes by...)", "Action 2", "Action 3"],
-  "long_term": ["3-12 months action 1 (e.g. Invest in or reallocate budget for...)", "Action 2", "Action 3"],
-  "citizen_impact": {{
-    "global": "Impact on everyday people globally (fuel, food, inflation)",
-    "middle_east": "Impact on Middle Eastern citizens",
-    "south_asia": "Impact on South Asian citizens"
+  "title": "🌍 Global Geopolitical Alert — {datetime.date.today().strftime('%b %d, %Y')}",
+  "summary": "Detailed summary of the biggest global shifts (trade, war, inflation) and the threat/opportunity they present.",
+  "short_term": "Next 2 weeks: Immediate global supply chain or price shocks to brace for.",
+  "medium_term": "1-3 months: Where ordinary citizens globally should invest savings or brace for inflation.",
+  "long_term": "3-12 months: Structural shifts in global order and energy.",
+  "action_plan": {{
+    "what_to_stock": "Specific global commodities (e.g., rice, gold) facing supply risks.",
+    "what_to_avoid": "Specific assets or purchases to hold off on globally.",
+    "energy_strategy": "Global advice on handling upcoming fuel costs."
   }},
-  "confidence": "high",
-  "risk_level": "high",
-  "key_risks": ["Specific risk 1", "Specific risk 2"]
+  "confidence": "high", "risk_level": "critical", "key_risks": ["Risk 1", "Risk 2"], "opportunities": ["Opportunity 1"]
 }}"""
-    raw = call_gemini(prompt, system=SYSTEM_PROMPT)
-    return extract_json(raw)
+    return extract_json(call_gemini(prompt, system=SYSTEM_PROMPT))
+
+def generate_europe_forecast(news_digest: str) -> dict:
+    prompt = f"""Analyze news for Europe/US and generate an actionable economic forecast for European/Western citizens.
+{news_digest}
+JSON Schema Requirement:
+{{
+  "title": "🇪🇺 Europe & West Alert — {datetime.date.today().strftime('%b %d, %Y')}",
+  "summary": "Detailed summary of European/US economic shifts, energy policies, and inflation.",
+  "short_term": "Next 2 weeks: Immediate actions regarding heating/energy bills or grocery costs.",
+  "medium_term": "1-3 months: Financial moves for EUR/USD stability and household budgets.",
+  "long_term": "3-12 months: Job market and industrial shifts.",
+  "action_plan": {{
+    "what_to_stock": "Specific goods to secure in Europe/US.",
+    "what_to_avoid": "Major purchases to delay.",
+    "energy_strategy": "Actionable advice on winter heating, electricity, and fuel."
+  }},
+  "confidence": "high", "risk_level": "high", "key_risks": ["Risk 1", "Risk 2"], "opportunities": ["Opportunity 1"]
+}}"""
+    return extract_json(call_gemini(prompt, system=SYSTEM_PROMPT))
+
+def generate_middle_east_forecast(news_digest: str) -> dict:
+    prompt = f"""Analyze Middle East news and generate an actionable economic/safety forecast for citizens living in the Middle East.
+{news_digest}
+JSON Schema Requirement:
+{{
+  "title": "🐪 Middle East Alert — {datetime.date.today().strftime('%b %d, %Y')}",
+  "summary": "Detailed summary of oil revenues, conflict risks, and local inflation impacts.",
+  "short_term": "Next 2 weeks: Immediate actions regarding travel, currency exchange, or supply stocking.",
+  "medium_term": "1-3 months: Financial moves regarding real estate, gold, and savings.",
+  "long_term": "3-12 months: Structural changes to subsidies and job markets.",
+  "action_plan": {{
+    "what_to_stock": "Specific local goods or stable currencies to hold.",
+    "what_to_avoid": "Investments or regions to avoid.",
+    "energy_strategy": "Fuel and local utility cost advice."
+  }},
+  "confidence": "high", "risk_level": "high", "key_risks": ["Risk 1", "Risk 2"], "opportunities": ["Opportunity 1"]
+}}"""
+    return extract_json(call_gemini(prompt, system=SYSTEM_PROMPT))
+
+def generate_south_asia_forecast(news_digest: str) -> dict:
+    prompt = f"""Analyze South Asia news (India, Pakistan, Sri Lanka) and generate an actionable forecast for regional citizens.
+{news_digest}
+JSON Schema Requirement:
+{{
+  "title": "🌏 South Asia Alert — {datetime.date.today().strftime('%b %d, %Y')}",
+  "summary": "Detailed summary of regional inflation, INR stability, and agricultural risks.",
+  "short_term": "Next 2 weeks: Immediate commodity/food price hikes to beat.",
+  "medium_term": "1-3 months: Job security, cross-border trade impacts, and remittance advice.",
+  "long_term": "3-12 months: Climate and agricultural outlooks affecting daily food costs.",
+  "action_plan": {{
+    "what_to_stock": "Specific agricultural goods (e.g., wheat, cooking oil) to buy now.",
+    "what_to_avoid": "Specific local assets to avoid.",
+    "energy_strategy": "Actionable advice on handling regional power grid issues/costs."
+  }},
+  "confidence": "high", "risk_level": "high", "key_risks": ["Risk 1", "Risk 2"], "opportunities": ["Opportunity 1"]
+}}"""
+    return extract_json(call_gemini(prompt, system=SYSTEM_PROMPT))
 
 def generate_bd_specific_forecast(news_digest: str) -> dict:
-    prompt = f"""Based on global news, generate a detailed, decisive economic action plan specifically for ordinary citizens in Bangladesh.
-
+    prompt = f"""Analyze news and generate an actionable, highly decisive economic outlook for citizens in Bangladesh.
 {news_digest}
-
-Tell Bangladeshi families exactly what to do regarding food prices, remittances, electricity/gas bills, and gold/savings. 
-
-Respond ONLY with this JSON:
+JSON Schema Requirement:
 {{
-  "title": "Bangladesh Citizen Action Plan",
-  "summary": "Write a highly comprehensive, 2-to-3 paragraph summary explaining exactly what the global situation means for the daily life of a Bangladeshi family right now.",
-  "short_term": ["Next 2 weeks action 1 (e.g. Buy rice/oil now due to...)", "Action 2", "Action 3"],
-  "medium_term": ["1-3 months action 1 (e.g. Handle remittance savings by...)", "Action 2", "Action 3"],
-  "long_term": ["3-12 months action 1 (e.g. Prepare for energy costs by...)", "Action 2", "Action 3"],
-  "sector_views": {{
-    "rmg_exports": "Job security outlook for RMG workers",
-    "remittances": "Advice for families relying on remittances",
-    "inflation_food": "Specific outlook for rice, onion, and cooking oil prices",
-    "energy_gas": "Gas and electricity cost outlook for households"
+  "title": "🇧🇩 Bangladesh Alert — {datetime.date.today().strftime('%b %d, %Y')}",
+  "summary": "Detailed, data-backed summary of how global events hit the BD economy and BDT purchasing power.",
+  "short_term": "Next 2 weeks: Immediate actions for BD citizens (groceries, remittances).",
+  "medium_term": "1-3 months: Financial moves for savings and gold.",
+  "long_term": "3-12 months: Career security in RMG/Tech.",
+  "action_plan": {{
+    "what_to_stock": "Specific items (e.g., onion, rice, soybean oil) to stock up on.",
+    "remittance_advice": "When expats should send money given BDT trajectory.",
+    "investment_moves": "Where local citizens should keep their money (land, gold)."
   }},
-  "confidence": "high",
-  "risk_level": "high",
-  "key_risks": ["Risk 1", "Risk 2"]
+  "confidence": "high", "risk_level": "high", "key_risks": ["Risk 1", "Risk 2"], "opportunities": ["Opportunity 1"]
 }}"""
-    raw = call_gemini(prompt, system=SYSTEM_PROMPT)
-    return extract_json(raw)
+    return extract_json(call_gemini(prompt, system=SYSTEM_PROMPT))
