@@ -68,16 +68,37 @@ def call_gemini(prompt: str, system: str = "") -> str:
         return f'{{"error": "Gemini API failed: {str(e)}"}}'
 
 # ── Router ───────────────────────────────────────────────────────────────────
-def call_ai(prompt: str, system: str = "") -> str:
-    """Gateway: Tries local Gemma first, falls back to Gemini."""
-    if USE_LOCAL_AI:
-        result = call_ollama(prompt, system)
-        if result: return result
-    return call_gemini(prompt, system)
-
 def extract_json(text: str) -> dict:
-    text = re.sub(r"
-http://googleusercontent.com/immersive_entry_chip/0
+    try:
+        # Strip markdown code fences if present
+        text = re.sub(r'```json\s*|\s*```', '', text).strip()
+        
+        # Try direct parse first
+        return json.loads(text)
+    
+    except json.JSONDecodeError:
+        # Fallback: find first { ... } block
+        match = re.search(r'\{.*\}', text, re.DOTALL)
+        if match:
+            try:
+                return json.loads(match.group())
+            except:
+                pass
+        
+        # Last resort: return safe default
+        return {
+            "error": "JSON parse failed",
+            "title": "Parse Error",
+            "summary": "Failed to parse API response. Check Gemini API key and quota.",
+            "short_term": "N/A",
+            "medium_term": "N/A",
+            "long_term": "N/A",
+            "confidence": "low",
+            "risk_level": "medium",
+            "key_risks": ["API parsing error"],
+            "opportunities": []
+        }
+
 
 
 # ── System prompt ────────────────────────────────────────────────────────────
