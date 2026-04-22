@@ -1,66 +1,56 @@
 """
-analyzer.py - Generate forecasts using OpenRouter (free LLM models)
-Uses free models: mistralai/mistral-7b-instruct, google/gemma-3-27b-it:free, etc.
+analyzer.py - Generate forecasts using Google Gemini
 """
 import requests
 import os
 import json
 import re
+import time
+import datetime
+from dotenv import load_dotenv
 
-OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY", "YOUR_OPENROUTER_KEY_HERE")
-OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
+# Load env vars if running this file directly for testing
+PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
+load_dotenv(os.path.join(PROJECT_ROOT, '.env'))
 
-# Best free models on OpenRouter (as of 2025) — ranked by quality
-FREE_MODELS = [
-    "deepseek/deepseek-r1-distill-llama-70b:free",
-    "deepseek/deepseek-chat-v3-0324:free",
-    "google/gemma-3-27b-it:free",
-    "meta-llama/llama-4-maverick:free",
-    "meta-llama/llama-4-scout:free",
-    "mistralai/mistral-small-3.1-24b-instruct:free",
-    "microsoft/phi-4-reasoning-plus:free",
-    "qwen/qwen3-14b:free",
-    "tngtech/deepseek-r1t-chimera:free",
-]
+def call_gemini(prompt: str, system: str = "") -> str:
+    """Call Google Gemini API."""
+    api_key = os.environ.get("GEMINI_API_KEY")
+    if not api_key:
+        return '{"error": "GEMINI_API_KEY is missing from environment variables."}'
 
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
 
-def call_openrouter(prompt: str, system: str = None, model: str = None) -> str:
-    models_to_try = [model] + FREE_MODELS if model else FREE_MODELS
-    for m in models_to_try:
-        try:
-            messages = []
-            if system:
-                messages.append({"role": "system", "content": system})
-            messages.append({"role": "user", "content": prompt})
-            headers = {
-                "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-                "Content-Type": "application/json",
-                "HTTP-Referer": "https://geopolitical-forecaster.pythonanywhere.com",
-                "X-Title": "GeoMarket Intel Forecaster",
-            }
-            payload = {
-                "model": m,
-                "messages": messages,
-                "max_tokens": 1800,
-                "temperature": 0.4,
-            }
-            resp = requests.post(OPENROUTER_URL, headers=headers, json=payload, timeout=90)
-            if resp.status_code == 429:
-                print(f"  ⏳ Rate limited on {m}, waiting 8s...")
-                time.sleep(8)
-                resp = requests.post(OPENROUTER_URL, headers=headers, json=payload, timeout=90)
-            resp.raise_for_status()
-            data = resp.json()
-            content = data["choices"][0]["message"]["content"]
-            print(f"  🤖 Model: {m} | Tokens: {data.get('usage', {}).get('total_tokens','?')}")
+    payload = {
+        "contents": [{
+            "parts": [{"text": f"System: {system}\n\nUser: {prompt}"}]
+        }],
+        "generationConfig": {
+            "temperature": 0.5,
+            "maxOutputTokens": 1500,
+        }
+    }
+
+    try:
+        resp = requests.post(url, json=payload, timeout=60)
+        resp.raise_for_status()
+        data = resp.json()
+        
+        # Check if the API returned a candidate
+        if 'candidates' in data and len(data['candidates']) > 0:
+            content = data['candidates'][0]['content']['parts'][0]['text']
+            print("  🤖 Model used: gemini-2.5-flash")
             return content
-        except Exception as e:
-            print(f"  ⚠️  Model {m} failed: {e}. Trying next...")
-    return '{"error": "All models failed.", "summary": "AI unavailable — check OpenRouter key and model list.", "short_term": "N/A", "medium_term": "N/A", "long_term": "N/A", "confidence": "low", "risk_level": "medium", "title": "Forecast Unavailable"}'
-
+        else:
+            print("  ⚠️ Gemini returned empty or blocked response.")
+            return '{"error": "Gemini returned empty response"}'
+            
+    except Exception as e:
+        print(f"  ⚠️ Gemini failed: {e}")
+        return '{"error": "Gemini API failed"}'
 
 def extract_json(text: str) -> dict:
-    # Strip <think>...</think> blocks from reasoning models
+    """Extract JSON from LLM response, handling markdown fences."""
     text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL)
     text = re.sub(r"```json|```", "", text).strip()
     match = re.search(r"\{.*\}", text, re.DOTALL)
@@ -76,7 +66,6 @@ def extract_json(text: str) -> dict:
 
 SYSTEM_PROMPT = """You are a world-class geopolitical analyst and financial forecaster. You write for a general audience — ordinary citizens, not just investors. You explain what events mean for the cost of everyday life: food, fuel, electricity, rent. You respond ONLY with a valid JSON object. No markdown. No explanation. No preamble. Start your response with { and end with }."""
 
-
 def generate_geopolitical_forecast(news_digest: str, trend_summary: str) -> dict:
     prompt = f"""Analyze this news and generate a geopolitical risk forecast for ordinary citizens worldwide.
 
@@ -89,7 +78,7 @@ Explain how each risk affects the daily life cost for average people globally.
 
 Respond ONLY with this JSON — no text before or after:
 {{
-  "title": "Global Geopolitical Risk Forecast — {__import__('datetime').date.today()}",
+  "title": "Global Geopolitical Risk Forecast — {datetime.date.today()}",
   "summary": "3-4 sentence plain-language summary of the biggest geopolitical forces at play right now and what they mean for ordinary people",
   "short_term": "Next 2 weeks: specific events, summits, elections, or conflicts to watch. What could change prices of food/fuel?",
   "medium_term": "1-3 months: evolving diplomatic situations, supply chain risks, sanctions impacts on everyday costs",
@@ -112,7 +101,8 @@ Respond ONLY with this JSON — no text before or after:
   "key_risks": ["Risk 1 with citizen impact", "Risk 2 with citizen impact", "Risk 3 with citizen impact"],
   "opportunities": ["Opportunity 1", "Opportunity 2"]
 }}"""
-    raw = call_openrouter(prompt, system=SYSTEM_PROMPT)
+    # FIX: Changed from call_openrouter to call_gemini
+    raw = call_gemini(prompt, system=SYSTEM_PROMPT)
     return extract_json(raw)
 
 
@@ -129,7 +119,7 @@ Explain gold, oil, and silver prices in terms of what they mean for everyday cit
 
 Respond ONLY with this JSON — no text before or after:
 {{
-  "title": "Global Market & Cost-of-Living Forecast — {__import__('datetime').date.today()}",
+  "title": "Global Market & Cost-of-Living Forecast — {datetime.date.today()}",
   "summary": "3-4 sentence plain-language summary: what markets are doing and what it means for your wallet",
   "short_term": "Next 2 weeks: expected moves in oil, gold, food commodity prices and their citizen impact",
   "medium_term": "1-3 months: inflation trajectory, interest rate expectations, currency pressures on imports",
@@ -155,7 +145,8 @@ Respond ONLY with this JSON — no text before or after:
   "key_risks": ["Risk 1", "Risk 2", "Risk 3"],
   "watch_list": ["Catalyst 1 to watch this week", "Catalyst 2", "Catalyst 3"]
 }}"""
-    raw = call_openrouter(prompt, system=SYSTEM_PROMPT)
+    # FIX: Changed from call_openrouter to call_gemini
+    raw = call_gemini(prompt, system=SYSTEM_PROMPT)
     return extract_json(raw)
 
 
@@ -170,7 +161,7 @@ Be specific about: what global events mean for the cost of daily goods in Bangla
 
 Respond ONLY with this JSON — no text before or after:
 {{
-  "title": "Bangladesh & South Asia Citizen Economic Outlook — {__import__('datetime').date.today()}",
+  "title": "Bangladesh & South Asia Citizen Economic Outlook — {datetime.date.today()}",
   "summary": "3-4 sentences: what is happening in the global economy right now and what Bangladeshi families should know about its impact on their daily lives",
   "short_term": "Next 2 weeks: expected changes in import costs, fuel prices, and remittance rates for Bangladeshi families",
   "medium_term": "1-3 months: RMG export demand outlook, BDT pressure, inflation trajectory, energy costs",
@@ -198,7 +189,8 @@ Respond ONLY with this JSON — no text before or after:
   "key_risks": ["Risk 1 with household impact", "Risk 2", "Risk 3"],
   "opportunities": ["Opportunity 1", "Opportunity 2"]
 }}"""
-    raw = call_openrouter(prompt, system=SYSTEM_PROMPT)
+    # FIX: Changed from call_openrouter to call_gemini
+    raw = call_gemini(prompt, system=SYSTEM_PROMPT)
     return extract_json(raw)
 
 
