@@ -5,10 +5,9 @@ Free tier: 100 requests/day, top headlines only
 import requests
 import os
 
-NEWS_API_KEY = os.environ.get("NEWS_API_KEY", "cd24517469524b30acdccd9f3946c76f")
-BASE_URL = "https://newsapi.org/v2/top-headlines"
+# Pulled safely from .env via wsgi.py or scheduler.py
+NEWS_API_KEY = os.environ.get("NEWS_API_KEY")
 EVERYTHING_URL = "https://newsapi.org/v2/everything"
-
 
 REGION_QUERIES = {
     "us_europe": {
@@ -33,7 +32,6 @@ REGION_QUERIES = {
     },
 }
 
-
 def fetch_headlines(query_params: dict, max_articles=10) -> list:
     """Fetch headlines from NewsAPI /everything endpoint."""
     params = {
@@ -53,11 +51,9 @@ def fetch_headlines(query_params: dict, max_articles=10) -> list:
         print(f"  ⚠️  NewsAPI error: {e}")
         return []
 
-
 def fetch_all_regions() -> dict:
     """
     Fetch news for all configured regions.
-    Returns dict: { region_name: [articles] }
     Uses 5 API calls total (well within 100/day free limit).
     """
     results = {}
@@ -66,11 +62,8 @@ def fetch_all_regions() -> dict:
         results[region] = articles
     return results
 
-
 def build_news_digest(region_articles: dict) -> str:
-    """
-    Combine all news into a readable text digest for the LLM.
-    """
+    """Combine all news into a readable text digest for the LLM."""
     lines = ["=== DAILY NEWS DIGEST ===\n"]
     for region, articles in region_articles.items():
         lines.append(f"\n--- {region.upper().replace('_', ' ')} ---")
@@ -83,7 +76,6 @@ def build_news_digest(region_articles: dict) -> str:
                 if desc:
                     lines.append(f"  {desc[:120]}...")
     return "\n".join(lines)
-
 
 if __name__ == "__main__":
     data = fetch_all_regions()

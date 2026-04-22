@@ -1,19 +1,21 @@
 """
 scheduler.py - Daily data fetch + forecast generation
 Run this daily via PythonAnywhere Scheduled Tasks at midnight UTC.
-
-PythonAnywhere setup:
-  Dashboard → Tasks → Add new scheduled task
-  Command: python3 /home/YOURUSERNAME/geopolitical-forecaster/scheduler.py
-  Time: 00:30 UTC daily
 """
 import sys
 import os
-
-# Add project to path
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-
 from datetime import datetime
+from dotenv import load_dotenv
+
+# 1. Setup paths and Environment Variables
+PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
+
+# This is critical for the script to find your API keys
+load_dotenv(os.path.join(PROJECT_ROOT, '.env'))
+
+# 2. Project Imports
 from database import init_db, save_news, save_market_data, save_price_history
 from fetchers.news import fetch_all_regions, build_news_digest
 from fetchers.stocks import (

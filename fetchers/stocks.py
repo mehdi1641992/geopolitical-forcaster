@@ -1,15 +1,13 @@
 """
 fetchers/stocks.py - Fetch market data using Alpha Vantage (free, 25 calls/day)
 Replaces yfinance which is blocked on PythonAnywhere free tier.
-
-Free API key: https://www.alphavantage.co/support/#api-key
-Free tier: 25 requests/day — we batch smartly to stay within limits.
 """
 import requests
 import os
 from datetime import datetime, timedelta
 
-ALPHA_VANTAGE_KEY = os.environ.get("ALPHA_VANTAGE_KEY", "832C3WKGH2HE71QB")
+# Key is now pulled safely from the .env file loaded by wsgi.py or scheduler.py
+ALPHA_VANTAGE_KEY = os.environ.get("ALPHA_VANTAGE_KEY")
 AV_BASE = "https://www.alphavantage.co/query"
 
 WATCHLIST = {
@@ -89,8 +87,6 @@ def build_trend_summary(history):
         pct = lambda a,b: ((b-a)/a)*100 if a else 0
         lines.append(f"{symbol:8s}  Now: ${latest:>10,.2f} | 30d: {pct(p30,latest):+.1f}% | 90d: {pct(p90,latest):+.1f}%")
     return "\n".join(lines)
-    return "\n".join(lines)
-
 
 if __name__ == "__main__":
     records = fetch_current_prices()
