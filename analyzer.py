@@ -7,39 +7,48 @@ import requests, os, json, re, datetime
 
 # ── Model configuration ─────────────────────────────────────────────────────
 GEMINI_API_KEY  = os.environ.get("GEMINI_API_KEY")
-OLLAMA_BASE_URL = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
-OLLAMA_MODEL    = os.environ.get("OLLAMA_MODEL", "gemma3:12b")   # or gemma3:27b
+OLLAMA_BASE_URL = os.environ.get("OLLAMA_BASE_URL")
+OLLAMA_MODEL    = os.environ.get("OLLAMA_MODEL", "gemma3:4b")
 USE_LOCAL_AI    = os.environ.get("USE_LOCAL_AI", "false").lower() == "true"
-
 
 # ── LOCAL: Ollama / Gemma ────────────────────────────────────────────────────
 def call_ollama(prompt: str, system: str = "") -> str:
-    """Call local Ollama server running Gemma."""
+    """Call local Ollama server running Gemma via ngrok tunnel."""
+    if not OLLAMA_BASE_URL:
+        return None
+
     try:
+        # Standardize URL and add required ngrok bypass header
+        url = f"{OLLAMA_BASE_URL.rstrip('/')}/api/generate"
+        headers = {
+            "ngrok-skip-browser-warning": "true",
+            "Content-Type": "application/json"
+        }
+
         payload = {
             "model": OLLAMA_MODEL,
-            "prompt": f"{system}\n\n{prompt}" if system else prompt,
+            "prompt": f"System: {system}\n\nUser: {prompt}" if system else prompt,
             "stream": False,
+            "format": "json", # Forces gemma to output valid JSON
             "options": {"temperature": 0.3, "num_predict": 2048},
         }
-        resp = requests.post(f"{OLLAMA_BASE_URL}/api/generate", json=payload, timeout=120)
+
+        resp = requests.post(url, json=payload, headers=headers, timeout=120)
         resp.raise_for_status()
+
         text = resp.json().get("response", "")
         print(f"  🤖 Ollama/{OLLAMA_MODEL} | {len(text)} chars")
         return text
+
     except Exception as e:
         print(f"  ⚠️ Ollama failed: {e} — falling back to Gemini")
         return None
-
 
 # ── CLOUD: Google Gemini ─────────────────────────────────────────────────────
 def call_gemini(prompt: str, system: str = "") -> str:
     if not GEMINI_API_KEY:
         return '{"error": "GEMINI_API_KEY not set"}'
-    url = (
-        f"https://generativelanguage.googleapis.com/v1beta/"
-        f"models/gemini-2.0-flash-exp:generateContent?key={GEMINI_API_KEY}"
-    )
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key={GEMINI_API_KEY}"
     payload = {
         "contents": [{"parts": [{"text": f"{system}\n\n{prompt}"}]}],
         "generationConfig": {
@@ -58,36 +67,17 @@ def call_gemini(prompt: str, system: str = "") -> str:
         print(f"  ⚠️ Gemini failed: {e}")
         return f'{{"error": "Gemini API failed: {str(e)}"}}'
 
-
 # ── Router ───────────────────────────────────────────────────────────────────
 def call_ai(prompt: str, system: str = "") -> str:
-    """Try local Gemma first; fall back to Gemini."""
+    """Gateway: Tries local Gemma first, falls back to Gemini."""
     if USE_LOCAL_AI:
         result = call_ollama(prompt, system)
-        if result:
-            return result
+        if result: return result
     return call_gemini(prompt, system)
 
-
 def extract_json(text: str) -> dict:
-    text = re.sub(r"```json\s*|\s*```", "", text).strip()
-    try:
-        return json.loads(text)
-    except json.JSONDecodeError:
-        match = re.search(r"\{.*\}", text, re.DOTALL)
-        if match:
-            try:
-                return json.loads(match.group())
-            except:
-                pass
-    return {
-        "error": "JSON parse failed",
-        "title": "Parse Error",
-        "summary": "Failed to parse AI response. Check API key/quota.",
-        "short_term": "N/A", "medium_term": "N/A", "long_term": "N/A",
-        "confidence": "low", "risk_level": "medium",
-        "key_risks": ["API parsing error"], "opportunities": [],
-    }
+    text = re.sub(r"
+http://googleusercontent.com/immersive_entry_chip/0
 
 
 # ── System prompt ────────────────────────────────────────────────────────────
