@@ -1,39 +1,44 @@
 """
-fetchers/news.py - Fetch news headlines from NewsAPI (free tier)
-Free tier: 100 requests/day, top headlines only
+fetchers/news.py - Fetch news headlines from NewsAPI (free tier: 100 req/day)
 """
-import requests
-import os
+import requests, os
 
-# Pulled safely from .env via wsgi.py or scheduler.py
 NEWS_API_KEY = os.environ.get("NEWS_API_KEY")
 EVERYTHING_URL = "https://newsapi.org/v2/everything"
 
 REGION_QUERIES = {
+    "geopolitics": {
+        "q": "war OR conflict OR NATO OR 'Red Sea' OR sanctions OR diplomacy",
+        "language": "en",
+    },
     "us_europe": {
-        "q": "US economy OR stock market OR geopolitics OR NATO OR Fed interest rates",
+        "q": "US economy OR stock market OR Fed interest rates OR ECB OR Wall Street",
+        "language": "en",
+    },
+    "commodities": {
+        "q": "oil price OR crude oil OR gold price OR silver OR commodity market",
         "language": "en",
     },
     "south_asia": {
-        "q": "India OR Bangladesh OR Pakistan OR South Asia economy",
+        "q": "India economy OR Bangladesh garments OR remittance OR Pakistan economy OR South Asia trade",
         "language": "en",
     },
     "middle_east": {
-        "q": "Middle East OR Saudi Arabia OR Iran OR Israel OR oil",
+        "q": "Saudi Arabia OR Iran nuclear OR Israel OR OPEC OR Gulf economy",
         "language": "en",
     },
     "global_markets": {
-        "q": "global economy OR recession OR inflation OR Federal Reserve OR IMF OR World Bank",
+        "q": "global recession OR inflation OR IMF OR World Bank OR central bank policy",
         "language": "en",
     },
     "crypto": {
-        "q": "Bitcoin OR Ethereum OR cryptocurrency",
+        "q": "Bitcoin OR Ethereum OR crypto regulation OR DeFi",
         "language": "en",
     },
 }
 
-def fetch_headlines(query_params: dict, max_articles=10) -> list:
-    """Fetch headlines from NewsAPI /everything endpoint."""
+
+def fetch_headlines(query_params: dict, max_articles=8) -> list:
     params = {
         "apiKey": NEWS_API_KEY,
         "pageSize": max_articles,
@@ -43,41 +48,31 @@ def fetch_headlines(query_params: dict, max_articles=10) -> list:
     try:
         resp = requests.get(EVERYTHING_URL, params=params, timeout=10)
         resp.raise_for_status()
-        data = resp.json()
-        articles = data.get("articles", [])
-        print(f"  📰 Fetched {len(articles)} articles for query: {query_params.get('q', '')[:50]}")
+        articles = resp.json().get("articles", [])
+        print(f"  📰 [{query_params.get('q','')[:40]}] → {len(articles)} articles")
         return articles
     except Exception as e:
         print(f"  ⚠️  NewsAPI error: {e}")
         return []
 
+
 def fetch_all_regions() -> dict:
-    """
-    Fetch news for all configured regions.
-    Uses 5 API calls total (well within 100/day free limit).
-    """
     results = {}
     for region, params in REGION_QUERIES.items():
-        articles = fetch_headlines(params, max_articles=8)
-        results[region] = articles
+        results[region] = fetch_headlines(params, max_articles=8)
     return results
 
+
 def build_news_digest(region_articles: dict) -> str:
-    """Combine all news into a readable text digest for the LLM."""
     lines = ["=== DAILY NEWS DIGEST ===\n"]
     for region, articles in region_articles.items():
         lines.append(f"\n--- {region.upper().replace('_', ' ')} ---")
         for a in articles:
             title = a.get("title", "")
-            source = a.get("source", {}).get("name", "")
-            desc = a.get("description", "") or ""
+            source = a.get("source", {}).get("name", "") if isinstance(a.get("source"), dict) else ""
+            desc = (a.get("description") or "")[:120]
             if title:
                 lines.append(f"• [{source}] {title}")
                 if desc:
-                    lines.append(f"  {desc[:120]}...")
+                    lines.append(f"  {desc}...")
     return "\n".join(lines)
-
-if __name__ == "__main__":
-    data = fetch_all_regions()
-    digest = build_news_digest(data)
-    print(digest)

@@ -1,9 +1,7 @@
 """
-scheduler.py - Daily data fetch + forecast generation (Gemini version)
+scheduler.py - Daily data fetch + forecast generation
 """
-import sys
-import os
-import time
+import sys, os, time, json
 from datetime import datetime
 
 PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
@@ -12,7 +10,11 @@ if PROJECT_ROOT not in sys.path:
 
 from database import init_db, save_news, save_market_data, save_price_history, save_forecast
 from fetchers.news import fetch_all_regions, build_news_digest
-from fetchers.stocks import fetch_current_prices, fetch_all_history, build_market_summary, build_trend_summary
+from fetchers.stocks import (
+    fetch_current_prices, fetch_all_history, fetch_commodity_prices,
+    build_market_summary, build_trend_summary,
+)
+from fetchers.worldometer import fetch_all_worldometer, build_worldometer_digest
 from analyzer import (
     generate_global_forecast,
     generate_europe_forecast,
@@ -29,62 +31,62 @@ def run_daily_job():
     print(f"{'='*60}")
 
     # 1. Init DB
-    print("\n[1/6] Initializing database...")
+    print("\n[1/7] Initializing database...")
     init_db()
 
     # 2. Fetch news
-    print("\n[2/6] Fetching news headlines...")
+    print("\n[2/7] Fetching news headlines (NewsAPI)...")
     region_articles = fetch_all_regions()
     for region, articles in region_articles.items():
         save_news(articles, region=region)
     news_digest = build_news_digest(region_articles)
-    print(f"  📰 Total articles: {sum(len(v) for v in region_articles.values())}")
+    total_articles = sum(len(v) for v in region_articles.values())
+    print(f"  📰 Total: {total_articles} articles across {len(region_articles)} regions")
 
-    # 3. Fetch current market data
-    print("\n[3/6] Fetching current market prices...")
-    market_records = fetch_current_prices()
-    if market_records:
-        save_market_data(market_records)
-    market_summary = build_market_summary(market_records)
+    # 3. Scrape Worldometer
+    print("\n[3/7] Scraping Worldometer live stats...")
+    worldometer_data = fetch_all_worldometer()
+    save_forecast("worldometer", worldometer_data)
+    worldometer_digest = build_worldometer_digest(worldometer_data)
 
-    # 4. Fetch & store historical data
-    print("\n[4/6] Fetching historical price data...")
+    # 4. Fetch commodity prices (Alpha Vantage)
+    print("\n[4/7] Fetching commodity prices (Alpha Vantage)...")
+    real_prices = fetch_commodity_prices()
+    save_forecast("real_prices", {"data": real_prices})
+    print(f"  💰 Oil: ${real_prices['barrel_price']}/bbl | Gold: ${real_prices['gold_ounce']}/oz")
+
+    # 5. Fetch historical price data (limited to save API calls)
+    print("\n[5/7] Fetching historical price data...")
     history = fetch_all_history()
     for symbol, rows in history.items():
         if rows:
             save_price_history(symbol, rows)
     trend_summary = build_trend_summary(history)
 
-    # 5. Generate 5 regional forecasts via Gemini
-    print("\n[5/6] Generating AI forecasts via Google Gemini...")
+    # 6. Generate 5 regional forecasts via AI
+    print("\n[6/7] Generating AI forecasts...")
 
-    print("  🌍 Global forecast...")
-    global_forecast = generate_global_forecast(news_digest)
-    save_forecast("global", global_forecast)
-    time.sleep(3)
+    forecasts = [
+        ("global",      "🌍 Global",      lambda: generate_global_forecast(news_digest, worldometer_digest)),
+        ("europe",      "🇪🇺 Europe/West", lambda: generate_europe_forecast(news_digest)),
+        ("middle_east", "🐪 Middle East",  lambda: generate_middle_east_forecast(news_digest)),
+        ("south_asia",  "🌏 South Asia",   lambda: generate_south_asia_forecast(news_digest)),
+        ("bangladesh",  "🇧🇩 Bangladesh",  lambda: generate_bd_specific_forecast(news_digest, worldometer_digest)),
+    ]
 
-    print("  🇪🇺 Europe/West forecast...")
-    europe_forecast = generate_europe_forecast(news_digest)
-    save_forecast("europe", europe_forecast)
-    time.sleep(3)
+    for ftype, label, fn in forecasts:
+        print(f"  {label} forecast...")
+        try:
+            result = fn()
+            save_forecast(ftype, result)
+            print(f"    ✅ Saved (confidence: {result.get('confidence','?')}, risk: {result.get('risk_level','?')})")
+        except Exception as e:
+            print(f"    ⚠️ Failed: {e}")
+        time.sleep(3)
 
-    print("  🐪 Middle East forecast...")
-    me_forecast = generate_middle_east_forecast(news_digest)
-    save_forecast("middle_east", me_forecast)
-    time.sleep(3)
-
-    print("  🌏 South Asia forecast...")
-    sa_forecast = generate_south_asia_forecast(news_digest)
-    save_forecast("south_asia", sa_forecast)
-    time.sleep(3)
-
-    print("  🇧🇩 Bangladesh forecast...")
-    bd_forecast = generate_bd_specific_forecast(news_digest)
-    save_forecast("bangladesh", bd_forecast)
-
-    # 6. Done
+    # 7. Done
     elapsed = (datetime.utcnow() - start).total_seconds()
-    print(f"\n[6/6] ✅ All done in {elapsed:.1f}s")
+    print(f"\n[7/7] ✅ All done in {elapsed:.1f}s")
     print(f"{'='*60}\n")
 
 

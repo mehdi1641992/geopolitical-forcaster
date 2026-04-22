@@ -1,41 +1,30 @@
 """
-app.py - Flask web application for the Geopolitical & Market Forecaster
-Deploy on PythonAnywhere as a WSGI web app.
+app.py - Flask web application for GeoMarket Intel
 """
-import sys
-import os
+import sys, os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from flask import Flask, render_template, jsonify, request
-from database import (
-    init_db, get_latest_forecasts, get_latest_news,
-    get_latest_market_data, get_price_history
-)
+from database import init_db, get_latest_forecasts, get_latest_news, get_latest_market_data, get_price_history
 from datetime import datetime
+import json
 
 app = Flask(__name__)
-
 
 @app.before_request
 def ensure_db():
     init_db()
 
-
 @app.route("/")
 def index():
     return render_template("index.html")
 
-
 @app.route("/api/forecasts")
 def api_forecasts():
-    forecast_type = request.args.get("type")
-    # Increased limit to 50 so old broken records don't push new ones out of view
+    forecast_type = request.args.get("type", "all")
     forecasts = get_latest_forecasts(limit=50)
-
-    if forecast_type and forecast_type != "all":
+    if forecast_type != "all":
         forecasts = [f for f in forecasts if f["forecast_type"] == forecast_type]
-
-    import json
     for f in forecasts:
         try:
             f["data"] = json.loads(f["raw_json"])
@@ -43,18 +32,18 @@ def api_forecasts():
             f["data"] = {}
     return jsonify(forecasts)
 
+@app.route("/api/news")
+def api_news():
+    region = request.args.get("region", None)
+    news = get_latest_news(limit=40)
+    if region:
+        news = [n for n in news if n.get("region") == region]
+    return jsonify(news)
 
 @app.route("/api/market")
 def api_market():
     data = get_latest_market_data()
     return jsonify(data)
-
-
-@app.route("/api/news")
-def api_news():
-    news = get_latest_news(limit=30)
-    return jsonify(news)
-
 
 @app.route("/api/history/<symbol>")
 def api_history(symbol):
@@ -62,17 +51,16 @@ def api_history(symbol):
     history = get_price_history(symbol, days=days)
     return jsonify(history)
 
-
-@app.route("/api/run-now", methods=["POST"])
-def run_now():
-    """Manually trigger a forecast run (useful for testing)."""
-    try:
-        from scheduler import run_daily_job
-        run_daily_job()
-        return jsonify({"status": "success", "message": "Forecast job completed."})
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
-
+@app.route("/api/worldometer")
+def api_worldometer():
+    forecasts = get_latest_forecasts(limit=20)
+    for f in forecasts:
+        if f["forecast_type"] == "worldometer":
+            try:
+                return jsonify(json.loads(f["raw_json"]))
+            except:
+                pass
+    return jsonify({})
 
 @app.route("/api/status")
 def api_status():
@@ -86,9 +74,16 @@ def api_status():
         "server_time": datetime.utcnow().isoformat(),
     })
 
+@app.route("/api/run-now", methods=["POST"])
+def run_now():
+    try:
+        from scheduler import run_daily_job
+        run_daily_job()
+        return jsonify({"status": "success", "message": "Forecast job completed."})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
 
-# ── PythonAnywhere WSGI entry point ──────────────────────────────────────────
-application = app  # PythonAnywhere looks for 'application'
+application = app  # PythonAnywhere WSGI entry point
 
 if __name__ == "__main__":
     init_db()

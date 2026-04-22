@@ -1,249 +1,277 @@
-# 🌍 GeoMarket Intel — Daily Geopolitical & Market Forecaster
+# 🌍 GeoMarket Intel — Daily Geopolitical & Market Forecaster v2
 
-> A zero-cost AI-powered forecasting dashboard that monitors global news daily and generates geopolitical risk assessments and financial market outlooks — with a dedicated South Asia / Bangladesh lens.
-
-![Python](https://img.shields.io/badge/Python-3.10-blue?style=flat-square&logo=python)
-![Flask](https://img.shields.io/badge/Flask-2.3-lightgrey?style=flat-square&logo=flask)
-![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)
-![Cost](https://img.shields.io/badge/Hosting%20Cost-%240%2Fmonth-brightgreen?style=flat-square)
+> AI-powered geopolitical and market forecasting dashboard for global citizens — with a dedicated Bangladesh/South Asia lens.  
+> Uses **Gemma 3** (local via Ollama) or **Google Gemini** (cloud), **Alpha Vantage**, **NewsAPI**, and **Worldometer scraping**.
 
 ---
 
-## 📸 What It Does
+## What It Does
 
-Every day the app automatically:
-
-1. **Fetches global news** across 5 regions (US/Europe, South Asia, Middle East, Global Markets, Crypto) via NewsAPI
-2. **Pulls live market prices** for 20+ assets — S&P 500, Bitcoin, Ethereum, Gold, Oil, NIFTY 50, Hang Seng, and more — via yfinance (no API key needed)
-3. **Stores 6 months of historical price data** in a local SQLite database for trend analysis
-4. **Generates 3 AI forecasts** via OpenRouter (free LLM models):
-   - 🌐 Geopolitical Risk Forecast
-   - 📈 Market Outlook (with per-asset signals)
-   - 🇧🇩 Bangladesh & South Asia Economic Outlook
-
-All results are displayed on a live dark-themed dashboard at your PythonAnywhere URL.
-
----
-
-## 🛠️ Tech Stack
-
-| Layer | Tool | Cost |
-|---|---|---|
-| Hosting | PythonAnywhere (free tier) | $0 |
-| AI / LLM | OpenRouter — Mistral, Gemma, Llama (free models) | $0 |
-| News | NewsAPI.org (free tier, 100 req/day) | $0 |
-| Market Data | yfinance (Yahoo Finance, unlimited) | $0 |
-| Database | SQLite (built into Python) | $0 |
-| Scheduler | GitHub Actions or cron-job.org | $0 |
-| Backend | Flask | $0 |
-| Frontend | Vanilla HTML/CSS/JS | $0 |
-| **Total** | | **$0/month** |
+Every day the app:
+1. **Fetches global news** across 7 regions (NewsAPI)
+2. **Scrapes Worldometer** for live global stats (population, oil, food, Bangladesh data)
+3. **Pulls live market prices** for 10+ assets via Alpha Vantage (SPY, BTC, Gold, Oil ETFs, etc.)
+4. **Generates 5 regional AI forecasts** via Gemma 3 (local) or Google Gemini (cloud):
+   - 🌍 Global Geopolitical Alert
+   - 🇪🇺 Europe & West Alert
+   - 🐪 Middle East Alert
+   - 🌏 South Asia Alert
+   - 🇧🇩 Bangladesh Citizen Alert
 
 ---
 
-## 📁 Project Structure
+## Project Structure
 
 ```
-geopolitical-forecaster/
-├── app.py                  # Flask web app + API routes
-├── scheduler.py            # Daily job: fetch → analyze → store
-├── analyzer.py             # OpenRouter LLM forecast generation
-├── database.py             # SQLite setup and queries
-├── wsgi.py                 # PythonAnywhere WSGI config
-├── requirements.txt        # Python dependencies
+geomarket/
+├── app.py                        # Flask web app + API routes
+├── scheduler.py                  # Daily job: fetch → analyze → store
+├── analyzer.py                   # AI forecast (Gemma via Ollama / Gemini fallback)
+├── database.py                   # SQLite setup and queries
+├── wsgi.py                       # PythonAnywhere WSGI config
+├── requirements.txt              # Python dependencies
+├── .env.example                  # Template for your API keys
 ├── fetchers/
 │   ├── __init__.py
-│   ├── news.py             # NewsAPI fetcher (5 regions)
-│   └── stocks.py           # yfinance fetcher (20+ assets)
+│   ├── news.py                   # NewsAPI fetcher (7 regions)
+│   ├── stocks.py                 # Alpha Vantage market data
+│   └── worldometer.py            # Web scraper for Worldometer
 ├── templates/
-│   └── index.html          # Dashboard UI
+│   └── index.html                # Dashboard UI (single file)
 └── .github/
     └── workflows/
-        └── daily.yml       # GitHub Actions daily trigger
+        └── daily.yml             # GitHub Actions daily scheduler
 ```
 
 ---
 
-## 🚀 Deployment Guide
+## API Keys You Need
 
-### Prerequisites — Get Your Free API Keys
-
-#### NewsAPI
-1. Register at [newsapi.org/register](https://newsapi.org/register)
-2. Copy your API key from the dashboard
-3. Free tier: 100 requests/day (app uses ~5/day)
-
-#### OpenRouter
-1. Sign up at [openrouter.ai](https://openrouter.ai)
-2. Go to **Keys → Create API Key**
-3. Free models available: Mistral 7B, Gemma 3 27B, Llama 3.1 8B
-4. No credit card required for free models
+| Service | URL | Free Tier |
+|---|---|---|
+| NewsAPI | https://newsapi.org/register | 100 req/day |
+| Alpha Vantage | https://www.alphavantage.co/support/#api-key | 25 req/day |
+| Google Gemini | https://aistudio.google.com/app/apikey | Free tier available |
+| Ollama (local) | https://ollama.com | Free, runs on your machine |
 
 ---
 
-### Step 1 — PythonAnywhere Setup
+## Option A — Deploy on PythonAnywhere (Free Cloud Hosting)
 
-1. Register at [pythonanywhere.com](https://www.pythonanywhere.com/registration/register/beginner/) (free)
-2. Your app will be hosted at `https://YOURUSERNAME.pythonanywhere.com`
+### Step 1 — Register
+
+Sign up at https://www.pythonanywhere.com (free). Your app will be at:
+`https://YOUR_USERNAME.pythonanywhere.com`
 
 ### Step 2 — Upload Files
 
-In PythonAnywhere **Dashboard → Files**, create this folder structure:
+In PythonAnywhere Dashboard → Files, create this folder structure:
 ```
-/home/YOURUSERNAME/geopolitical-forecaster/
-/home/YOURUSERNAME/geopolitical-forecaster/fetchers/
-/home/YOURUSERNAME/geopolitical-forecaster/templates/
+/home/YOUR_USERNAME/geomarket/
+/home/YOUR_USERNAME/geomarket/fetchers/
+/home/YOUR_USERNAME/geomarket/templates/
+/home/YOUR_USERNAME/geomarket/.github/workflows/
 ```
-Upload each file from this repo into its matching folder.
+
+Upload all files from this project into the matching folders.
 
 ### Step 3 — Install Dependencies
 
-Go to **Dashboard → Consoles → Bash** and run:
+Go to Dashboard → Consoles → Bash and run:
 ```bash
-python3.10 -m pip install --user flask requests yfinance
+cd ~/geomarket
+pip3.10 install --user flask requests python-dotenv beautifulsoup4 lxml
 ```
 
-### Step 4 — Add Your API Keys
+### Step 4 — Create Your .env File
 
-Open `wsgi.py` and update these three lines:
+In the Bash console:
+```bash
+cp ~/.../geomarket/.env.example ~/geomarket/.env
+nano ~/geomarket/.env
+```
+
+Fill in your keys:
+```
+NEWS_API_KEY=your_newsapi_key
+ALPHA_VANTAGE_KEY=your_alphavantage_key
+GEMINI_API_KEY=your_gemini_key
+```
+
+Save with Ctrl+O, exit with Ctrl+X.
+
+### Step 5 — Edit wsgi.py
+
+Open `wsgi.py` and change this line to your username:
 ```python
-PROJECT_HOME = '/home/YOURUSERNAME/geopolitical-forecaster'
-os.environ['NEWS_API_KEY']       = 'YOUR_NEWSAPI_KEY_HERE'
-os.environ['OPENROUTER_API_KEY'] = 'YOUR_OPENROUTER_KEY_HERE'
+PROJECT_HOME = '/home/YOUR_USERNAME/geomarket'
 ```
 
-### Step 5 — Configure the Web App
+### Step 6 — Configure the Web App
 
-1. Go to **Dashboard → Web → Add a new web app**
+1. Dashboard → Web → Add a new web app
 2. Choose **Manual configuration** → **Python 3.10**
-3. Click the WSGI config file link → paste the contents of `wsgi.py`
-4. Click **Save** → **Reload**
+3. In **Code** section, set:
+   - **Source code:** `/home/YOUR_USERNAME/geomarket`
+   - **Working directory:** `/home/YOUR_USERNAME/geomarket`
+4. Click the **WSGI configuration file** link
+5. Delete everything and paste the contents of `wsgi.py`
+6. Click **Save** → **Reload**
 
-### Step 6 — Set Up the Daily Scheduler
+### Step 7 — Test It
 
-> PythonAnywhere free tier does not support scheduled tasks, so use one of these free alternatives:
+Visit `https://YOUR_USERNAME.pythonanywhere.com` → Click **▶ RUN NOW**
 
-#### Option A — GitHub Actions (recommended)
+Wait 60–120 seconds. Your dashboard will populate.
 
-Push this repo to GitHub. The file `.github/workflows/daily.yml` is already included. Just update the URL inside it:
-```yaml
-curl -X POST https://YOURUSERNAME.pythonanywhere.com/api/run-now
+### Step 8 — Set Up Daily Scheduler
+
+PythonAnywhere free tier has no cron. Use one of these free options:
+
+**Option A — GitHub Actions (recommended)**
+
+1. Push this repo to GitHub
+2. Edit `.github/workflows/daily.yml` — replace `YOUR_USERNAME` with your PythonAnywhere username
+3. GitHub will trigger your app every day at 6:30 AM Dhaka time (00:30 UTC)
+
+**Option B — cron-job.org**
+
+1. Sign up at https://cron-job.org (free)
+2. Create new job:
+   - URL: `https://YOUR_USERNAME.pythonanywhere.com/api/run-now`
+   - Method: POST
+   - Schedule: Daily, 00:30 UTC
+
+---
+
+## Option B — Run Locally with Gemma 3 (Recommended for Bangladesh / Home Server)
+
+This is the best setup if you want to use the local Gemma 3 model (free, private, no API limits).
+
+### Step 1 — Install Ollama
+
+Download and install Ollama from https://ollama.com
+
+**Windows:**
 ```
-GitHub will trigger your app every day at 00:30 UTC (6:30 AM Dhaka time). Uses ~2 min/day of your free 2,000 min/month quota.
+Download and run the installer from ollama.com
+```
 
-#### Option B — cron-job.org (no GitHub needed)
+**Linux/Mac:**
+```bash
+curl -fsSL https://ollama.com/install.sh | sh
+```
 
-1. Sign up at [cron-job.org](https://cron-job.org) (free)
-2. Create a new cronjob:
-   - **URL:** `https://YOURUSERNAME.pythonanywhere.com/api/run-now`
-   - **Method:** POST
-   - **Schedule:** Daily, 00:30 UTC
-3. Save
+### Step 2 — Download Gemma 3
 
-### Step 7 — First Run
+```bash
+# Recommended: 12B model (needs ~8GB RAM)
+ollama pull gemma3:12b
 
-1. Visit `https://YOURUSERNAME.pythonanywhere.com`
-2. Click **▶ RUN NOW** to generate your first forecasts immediately
-3. Wait ~60–90 seconds for data fetch + AI generation
-4. Your dashboard will populate with live forecasts
+# If you have more RAM/VRAM:
+ollama pull gemma3:27b
+
+# Lightweight option (4GB RAM):
+ollama pull gemma3:4b
+```
+
+Verify Ollama is running:
+```bash
+ollama serve         # Start the Ollama server
+ollama list          # Should show your model
+```
+
+### Step 3 — Clone and Configure
+
+```bash
+git clone https://github.com/YOUR_USERNAME/geomarket.git
+cd geomarket
+```
+
+Create `.env`:
+```
+NEWS_API_KEY=your_newsapi_key
+ALPHA_VANTAGE_KEY=your_alphavantage_key
+
+# Enable local Gemma:
+USE_LOCAL_AI=true
+OLLAMA_BASE_URL=http://localhost:11434
+OLLAMA_MODEL=gemma3:12b
+```
+
+### Step 4 — Install and Run
+
+```bash
+pip install flask requests python-dotenv beautifulsoup4 lxml
+
+# Run the web app:
+python app.py
+
+# In another terminal, trigger a forecast run:
+python scheduler.py
+```
+
+Visit: http://localhost:5000
+
+### Step 5 — Daily Schedule (Local)
+
+**Windows Task Scheduler:**
+1. Open Task Scheduler → Create Basic Task
+2. Trigger: Daily at 6:30 AM
+3. Action: Run `python C:\path\to\geomarket\scheduler.py`
+
+**Linux cron:**
+```bash
+crontab -e
+# Add:
+30 6 * * * cd /path/to/geomarket && python scheduler.py >> /tmp/geomarket.log 2>&1
+```
 
 ---
 
-## 📊 Dashboard Features
-
-- **Forecasts tab** — Browse all AI-generated forecasts, filterable by type (Geopolitical / Market / Bangladesh). Each card shows short, medium, and long-term outlooks, risk level, confidence score, key risks, and opportunities.
-- **Markets tab** — Live prices and 24h change for all tracked assets, grouped by category.
-- **News Feed tab** — Latest headlines by region with source attribution.
-- **▶ RUN NOW button** — Manually trigger a full data refresh and new forecast at any time.
-
----
-
-## 🌐 Tracked Assets
-
-**US Markets:** S&P 500, Dow Jones, NASDAQ, VIX
-
-**Crypto:** Bitcoin (BTC), Ethereum (ETH)
-
-**Commodities:** Gold, Crude Oil (WTI), Silver, Natural Gas
-
-**Asian Markets:** NIFTY 50, BSE Sensex, Nikkei 225, Hang Seng
-
-**Global ETFs:** Emerging Markets ETF, Oil ETF, Gold ETF, US 10Y Treasury Yield
-
----
-
-## 🌏 News Regions Monitored
-
-| Region | Focus |
-|---|---|
-| US & Europe | Economy, equities, policy, geopolitics |
-| South Asia | India, Bangladesh, Pakistan — trade, economy |
-| Middle East | Oil, conflicts, Saudi Arabia, Iran, Israel |
-| Global Markets | Fed, IMF, World Bank, inflation, recession |
-| Crypto | Bitcoin, Ethereum, digital asset regulation |
-
----
-
-## 🇧🇩 Bangladesh-Specific Outlook
-
-Every daily run includes a dedicated Bangladesh & South Asia forecast covering:
-- RMG (garment) export sector trends
-- Remittance flow outlook
-- BDT currency stability
-- Inflation trajectory
-- Energy supply and cost outlook
-- Regional trade dynamics (India, China)
-
----
-
-## ⚙️ Customization
+## Customization
 
 **Add more stocks:** Edit `fetchers/stocks.py` → `WATCHLIST` dict
 
 **Add more news regions:** Edit `fetchers/news.py` → `REGION_QUERIES` dict
 
-**Change AI model:** Edit `analyzer.py` → `FREE_MODELS` list. Find current free models at [openrouter.ai/models?q=free](https://openrouter.ai/models?q=free)
+**Switch AI model:** Edit `.env` — set `OLLAMA_MODEL=gemma3:27b` or change to any Ollama model
 
-**Change scheduler time:** Edit `.github/workflows/daily.yml` → `cron` expression
+**Add more Worldometer pages:** Edit `fetchers/worldometer.py` → `WORLDOMETER_URLS` dict
 
 ---
 
-## 🔒 Free Tier Limits
+## API Rate Limits
 
 | Service | Free Limit | This App Uses |
 |---|---|---|
-| PythonAnywhere | 1 web app, 512MB storage | Well within limits |
-| NewsAPI | 100 requests/day | ~5 requests/day |
-| OpenRouter | Free model rate limits | ~3 requests/day |
-| yfinance | Unlimited | ~20 symbols/day |
-| GitHub Actions | 2,000 min/month | ~2 min/day (~60/month) |
-| SQLite | Unlimited (local file) | ~10MB/month growth |
+| NewsAPI | 100 req/day | 7 req/day |
+| Alpha Vantage | 25 req/day (5/min) | ~15 req/day |
+| Gemini | Free tier rate limits | 5 req/day |
+| Ollama (local) | Unlimited | 5 req/day |
+| Worldometer | No limit (ethical scraping) | 5 pages/day |
 
 ---
 
-## 🐛 Troubleshooting
+## Troubleshooting
 
-**500 error on the web app:**
-Check **Web tab → Log files → Error log** in PythonAnywhere. Usually a missing dependency or wrong path in `wsgi.py`.
+**500 error on PythonAnywhere:**
+Check Web → Error log. Usually a missing dependency or wrong path in `wsgi.py`.
 
-**"No forecasts found" on dashboard:**
-Click **▶ RUN NOW**. The database is empty until the first run completes.
+**"No forecasts" on dashboard:**
+Click ▶ RUN NOW. The database is empty until the first run.
 
-**OpenRouter returns an error:**
-Verify your API key at [openrouter.ai](https://openrouter.ai). Check that a free model is listed in `FREE_MODELS` in `analyzer.py` — free model availability can change. Current list: [openrouter.ai/models?q=free](https://openrouter.ai/models?q=free)
+**Alpha Vantage rate limit:**
+Free tier allows only 5 requests/minute. The app adds `time.sleep(12)` between calls automatically.
 
-**NewsAPI 426 or 401 error:**
-Double-check your key is correct in `wsgi.py`. Confirm it's active at [newsapi.org/account](https://newsapi.org/account).
+**Ollama not responding:**
+Make sure Ollama is running: `ollama serve` in a terminal.
 
-**GitHub Actions not triggering:**
-GitHub sometimes delays scheduled workflows by up to 1 hour on free accounts. You can also trigger it manually from **Actions tab → Daily Forecast Trigger → Run workflow**.
+**Worldometer scraping blocked:**
+Worldometer occasionally blocks scrapers. The scraper will return empty data rather than crash — forecasts will still generate using news data.
 
 ---
 
-## 📄 License
+## License
 
 MIT — free to use, modify, and deploy.
-
----
-
-*Built with Flask · yfinance · NewsAPI · OpenRouter · PythonAnywhere · GitHub Actions*
