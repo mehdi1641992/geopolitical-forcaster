@@ -1,6 +1,5 @@
 """
 fetchers/news.py - Fetch news headlines from NewsAPI (free tier)
-Free tier: 100 requests/day, top headlines only
 """
 import requests
 import os
@@ -10,12 +9,20 @@ NEWS_API_KEY = os.environ.get("NEWS_API_KEY")
 EVERYTHING_URL = "https://newsapi.org/v2/everything"
 
 REGION_QUERIES = {
+    "geopolitics": {
+        "q": "war OR conflict OR NATO OR 'Red Sea' OR 'diplomacy shift'",
+        "language": "en",
+    }, # <-- Fixed missing comma
     "us_europe": {
         "q": "US economy OR stock market OR geopolitics OR NATO OR Fed interest rates",
         "language": "en",
     },
+    "commodities": {
+        "q": "oil price OR gas price OR 'gold reserves' OR 'silver price'",
+        "language": "en",
+    },
     "south_asia": {
-        "q": "India OR Bangladesh OR Pakistan OR South Asia economy",
+        "q": "India OR Bangladesh economy OR 'remittance' OR 'garments export' OR Pakistan OR South Asia economy",
         "language": "en",
     },
     "middle_east": {
@@ -23,7 +30,7 @@ REGION_QUERIES = {
         "language": "en",
     },
     "global_markets": {
-        "q": "global economy OR recession OR inflation OR Federal Reserve OR IMF OR World Bank",
+        "q": "global economy OR recession OR inflation OR Federal Reserve OR IMF OR World Bank OR 'central bank'",
         "language": "en",
     },
     "crypto": {
@@ -41,21 +48,18 @@ def fetch_headlines(query_params: dict, max_articles=10) -> list:
         **query_params,
     }
     try:
-        resp = requests.get(EVERYTHING_URL, params=params, timeout=10)
+        resp = requests.get(EVERYTHING_URL, params=params, timeout=15)
         resp.raise_for_status()
         data = resp.json()
         articles = data.get("articles", [])
-        print(f"  📰 Fetched {len(articles)} articles for query: {query_params.get('q', '')[:50]}")
+        print(f"  📰 Fetched {len(articles)} articles for: {query_params.get('q', '')[:40]}...")
         return articles
     except Exception as e:
-        print(f"  ⚠️  NewsAPI error: {e}")
+        print(f"  ⚠️ NewsAPI error: {e}")
         return []
 
 def fetch_all_regions() -> dict:
-    """
-    Fetch news for all configured regions.
-    Uses 5 API calls total (well within 100/day free limit).
-    """
+    """Fetch news for all configured regions."""
     results = {}
     for region, params in REGION_QUERIES.items():
         articles = fetch_headlines(params, max_articles=8)
