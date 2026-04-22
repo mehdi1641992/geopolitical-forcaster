@@ -5,7 +5,7 @@ Free tier: 100 requests/day, top headlines only
 import requests
 import os
 
-NEWS_API_KEY = os.environ.get("NEWS_API_KEY", "YOUR_NEWSAPI_KEY_HERE")
+NEWS_API_KEY = os.environ.get("NEWS_API_KEY", "cd24517469524b30acdccd9f3946c76f")
 BASE_URL = "https://newsapi.org/v2/top-headlines"
 EVERYTHING_URL = "https://newsapi.org/v2/everything"
 
