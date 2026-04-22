@@ -1,0 +1,17 @@
+# .github/workflows/daily.yml
+name: Daily Forecast Trigger
+
+on:
+  schedule:
+    - cron: '30 0 * * *'  # 00:30 UTC = 6:30 AM Dhaka
+  workflow_dispatch:        # also lets you trigger manually from GitHub UI
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger forecast run
+        run: |
+          curl -X POST https://YOURUSERNAME.pythonanywhere.com/api/run-now \
+               -H "Content-Type: application/json" \
+               --max-time 120
