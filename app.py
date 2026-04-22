@@ -28,11 +28,13 @@ def index():
 
 @app.route("/api/forecasts")
 def api_forecasts():
-    forecast_type = request.args.get("type")  # geopolitical, market, bangladesh
-    forecasts = get_latest_forecasts(limit=15)
-    if forecast_type:
+    forecast_type = request.args.get("type")
+    # Increased limit to 50 so old broken records don't push new ones out of view
+    forecasts = get_latest_forecasts(limit=50)
+
+    if forecast_type and forecast_type != "all":
         forecasts = [f for f in forecasts if f["forecast_type"] == forecast_type]
-    # Parse raw_json for richer data
+
     import json
     for f in forecasts:
         try:
