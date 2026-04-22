@@ -88,16 +88,6 @@ header{background:var(--bg2);border-bottom:1px solid var(--border);padding:0 1.5
 .tag-o{border-color:var(--accent2);color:var(--accent2);}
 .fc-time{font-family:var(--mono);font-size:.62rem;color:var(--dim);margin-top:.7rem;}
 
-.mtbl{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:.8rem;}
-.mtbl thead tr{border-bottom:1px solid var(--border);}
-.mtbl th{text-align:left;padding:7px 10px;color:var(--dim);font-size:.65rem;letter-spacing:1.5px;text-transform:uppercase;}
-.mtbl td{padding:7px 10px;border-bottom:1px solid rgba(26,48,80,.4);color:var(--text);}
-.mtbl tr:hover td{background:var(--bg3);}
-.cat-hdr td{background:var(--bg3);color:var(--dim);font-size:.65rem;letter-spacing:2px;text-transform:uppercase;padding:5px 10px;border-bottom:1px solid var(--border);}
-.price{font-weight:600;color:var(--bright);}
-.up{color:var(--accent2);}
-.down{color:var(--danger);}
-
 .ni{border-bottom:1px solid rgba(26,48,80,.4);padding:.85rem 0;}
 .ni:last-child{border-bottom:none;}
 .ni-title{font-size:.9rem;font-weight:600;color:var(--bright);margin-bottom:.25rem;line-height:1.4;}
@@ -106,6 +96,17 @@ header{background:var(--bg2);border-bottom:1px solid var(--border);padding:0 1.5
 .ni-meta{font-family:var(--mono);font-size:.63rem;color:var(--dim);}
 .ni-desc{font-size:.81rem;color:var(--dim);margin-top:.25rem;line-height:1.5;}
 .ni-tag{display:inline-block;font-family:var(--mono);font-size:.58rem;padding:1px 5px;border:1px solid;margin-left:6px;text-transform:uppercase;letter-spacing:1px;vertical-align:middle;}
+
+.gr-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:.6rem;}
+@media(max-width:900px){.gr-grid{grid-template-columns:repeat(3,1fr);}}
+@media(max-width:500px){.gr-grid{grid-template-columns:repeat(2,1fr);}}
+.gr-item{background:var(--bg3);border:1px solid var(--border);padding:.7rem;text-align:center;}
+.gr-country{font-family:var(--mono);font-size:.6rem;color:var(--dim);letter-spacing:1px;text-transform:uppercase;margin-bottom:.3rem;}
+.gr-tonnes{font-size:1rem;font-weight:700;color:var(--warn);}
+.gr-pct{font-family:var(--mono);font-size:.65rem;color:var(--dim);margin-top:.1rem;}
+.stat-box{background:var(--bg3);border:1px solid var(--accent);padding:1rem;text-align:center;border-radius:4px;margin-bottom:1rem;}
+.stat-val{font-size:2rem;font-family:var(--mono);color:var(--accent);font-weight:bold;}
+.stat-lbl{font-size:.7rem;color:var(--text);letter-spacing:1px;text-transform:uppercase;margin-top:5px;}
 
 .loading{font-family:var(--mono);color:var(--dim);font-size:.78rem;padding:2rem;text-align:center;animation:blink 1s step-end infinite;}
 @keyframes blink{50%{opacity:0;}}
@@ -125,7 +126,7 @@ header{background:var(--bg2);border-bottom:1px solid var(--border);padding:0 1.5
 <div class="container">
   <div class="tabs">
     <button class="tab active" onclick="switchTab('forecasts')">FORECASTS</button>
-    <button class="tab" onclick="switchTab('market')">MARKETS</button>
+    <button class="tab" onclick="switchTab('reserves')">GLOBAL RESERVES (API)</button>
     <button class="tab" onclick="switchTab('news')">NEWS FEED</button>
   </div>
 
@@ -150,8 +151,32 @@ header{background:var(--bg2);border-bottom:1px solid var(--border);padding:0 1.5
     <div id="forecasts-container"><div class="loading">// FETCHING INTELLIGENCE DATA...</div></div>
   </div>
 
-  <div id="tab-market" class="tab-content">
-    <div id="market-container"><div class="loading">// LOADING MARKET DATA...</div></div>
+  <div id="tab-reserves" class="tab-content">
+    
+    <div class="g2" style="margin-bottom:1rem;">
+       <div class="stat-box">
+           <div class="stat-val" id="price-barrel">...</div>
+           <div class="stat-lbl">Global Est. Price per Barrel (USD)</div>
+       </div>
+       <div class="stat-box">
+           <div class="stat-val" id="price-gallon" style="color:var(--accent2)">...</div>
+           <div class="stat-lbl">Global Est. Avg Price per Gallon (USD)</div>
+       </div>
+    </div>
+
+    <div class="card" style="margin-bottom:.9rem;">
+      <div class="clabel">Central Bank Gold Reserves (Tonnes)</div>
+      <div class="gr-grid" id="gold-reserves-grid">
+         <div class="loading">// LOADING LIVE API DATA...</div>
+      </div>
+    </div>
+    
+    <div class="card">
+      <div class="clabel">Global Proven Oil Reserves (Billion Barrels)</div>
+      <div class="gr-grid" id="oil-reserves-grid">
+         <div class="loading">// LOADING LIVE API DATA...</div>
+      </div>
+    </div>
   </div>
 
   <div id="tab-news" class="tab-content">
@@ -180,7 +205,7 @@ header{background:var(--bg2);border-bottom:1px solid var(--border);padding:0 1.5
 const REGION_COLORS = {us_europe:'#00d4ff',south_asia:'#ffb347',middle_east:'#ff6b35',global_markets:'#00ff9d',crypto:'#c084fc'};
 
 function timeAgo(iso){const h=Math.floor((Date.now()-new Date(iso+'Z').getTime())/3.6e6);if(h<1)return'just now';if(h<24)return h+'h ago';return Math.floor(h/24)+'d ago';}
-function typeBadge(t){return`<span class="badge b-${t}">${t.toUpperCase().replace('_',' ')}</span>`;}
+function typeBadge(t){return`<span class="badge b-${t}">${(t||'').toUpperCase().replace('_',' ')}</span>`;}
 function riskBadge(r){return`<span class="badge b-${r||'medium'}">${(r||'?').toUpperCase()}</span>`;}
 function alertClass(txt){if(!txt)return'';if(txt.startsWith('✅')||txt.toLowerCase().includes('positive'))return'alert-ok';if(txt.startsWith('⚠️'))return'alert-warn';return'alert-risk';}
 
@@ -188,7 +213,7 @@ async function loadStatus(){
   try{
     const d=await fetch('/api/status').then(r=>r.json());
     document.getElementById('last-run').textContent='Last: '+(d.last_run==='Never'?'Never':timeAgo(d.last_run));
-    document.getElementById('status-text').innerHTML=`FORECASTS: ${d.forecasts_count} | ASSETS: ${d.market_assets} | UTC: ${d.server_time.slice(0,19)}`;
+    document.getElementById('status-text').innerHTML=`FORECASTS: ${d.forecasts_count} | UTC: ${d.server_time.slice(0,19)}`;
   }catch(e){document.getElementById('status-text').textContent='Status unavailable';}
 }
 
@@ -275,25 +300,41 @@ function toggleSection(btn){
   if(arrow)arrow.textContent=body.classList.contains('open')?'▲':'▼';
 }
 
-let marketLoaded=false;
-async function loadMarket(){
-  marketLoaded=true;
-  const container=document.getElementById('market-container');
-  const data=await fetch('/api/market').then(r=>r.json());
-  if(!data.length){container.innerHTML=`<div class="empty">// NO MARKET DATA. RUN THE SCHEDULER TO FETCH PRICES.</div>`;return;}
-  const byCategory={};
-  data.forEach(d=>{if(!byCategory[d.category])byCategory[d.category]=[];byCategory[d.category].push(d);});
-  let html=`<div class="card"><table class="mtbl"><thead><tr><th>Symbol</th><th>Name</th><th style="text-align:right">Price</th><th style="text-align:right">24h Chg</th><th style="text-align:right">Volume</th></tr></thead><tbody>`;
-  for(const[cat,rows]of Object.entries(byCategory)){
-    html+=`<tr class="cat-hdr"><td colspan="5">${cat}</td></tr>`;
-    rows.forEach(d=>{
-      const up=d.change_pct>=0,arrow=up?'▲':'▼';
-      const vol=d.volume>1e9?(d.volume/1e9).toFixed(1)+'B':d.volume>1e6?(d.volume/1e6).toFixed(1)+'M':d.volume>0?d.volume.toLocaleString():'—';
-      html+=`<tr><td><span style="color:var(--accent)">${d.symbol}</span></td><td>${d.name}</td><td class="price" style="text-align:right">${d.price.toLocaleString(undefined,{maximumFractionDigits:4})}</td><td class="${up?'up':'down'}" style="text-align:right">${arrow} ${Math.abs(d.change_pct).toFixed(2)}%</td><td style="text-align:right;color:var(--dim)">${vol}</td></tr>`;
-    });
+let reservesLoaded=false;
+async function loadReserves(){
+  if(reservesLoaded) return;
+  const goldGrid = document.getElementById('gold-reserves-grid');
+  const oilGrid = document.getElementById('oil-reserves-grid');
+  try {
+     const data = await fetch('/api/reserves').then(r=>r.json());
+     
+     // Update Prices
+     document.getElementById('price-barrel').textContent = '$' + data.metrics.barrel_price;
+     document.getElementById('price-gallon').textContent = '$' + data.metrics.gallon_price;
+
+     // Render Gold
+     const sortedGold = data.gold.sort((a,b) => b.amount - a.amount);
+     goldGrid.innerHTML = sortedGold.map(g => `
+      <div class="gr-item">
+        <div class="gr-country">${g.country}</div>
+        <div class="gr-tonnes">${g.amount.toLocaleString()}t</div>
+        <div class="gr-pct">${g.pct} of reserves</div>
+      </div>`).join('');
+
+     // Render Oil
+     const sortedOil = data.oil.sort((a,b) => b.amount - a.amount);
+     oilGrid.innerHTML = sortedOil.map(o => `
+      <div class="gr-item">
+        <div class="gr-country">${o.country}</div>
+        <div class="gr-tonnes" style="color:var(--accent2);">${o.amount.toLocaleString()} Bbbl</div>
+        <div class="gr-pct">${o.pct} of global</div>
+      </div>`).join('');
+     
+     reservesLoaded = true;
+  } catch(e) {
+     goldGrid.innerHTML = '<div class="empty">API Error loading data.</div>';
+     oilGrid.innerHTML = '<div class="empty">API Error loading data.</div>';
   }
-  html+='</tbody></table></div>';
-  container.innerHTML=html;
 }
 
 let newsLoaded=false;
@@ -323,7 +364,8 @@ async function runNow(){
     const d=await fetch('/api/run-now',{method:'POST'}).then(r=>r.json());
     if(d.status==='success'){
       btn.textContent='✅ DONE';
-      marketLoaded=false;newsLoaded=false;
+      newsLoaded=false;
+      reservesLoaded=false;
       await loadStatus();
       await loadForecasts(currentFilter);
     }else{
@@ -338,12 +380,12 @@ async function runNow(){
 
 function switchTab(name){
   document.querySelectorAll('.tab').forEach((t,i)=>{
-    t.classList.toggle('active',['forecasts','market','news'][i]===name);
+    t.classList.toggle('active',['forecasts','reserves','news'][i]===name);
   });
   document.querySelectorAll('.tab-content').forEach(c=>c.classList.remove('active'));
   document.getElementById('tab-'+name).classList.add('active');
-  if(name==='market'&&!marketLoaded)loadMarket();
-  if(name==='news'&&!newsLoaded)loadNews();
+  if(name==='reserves') loadReserves();
+  if(name==='news'&&!newsLoaded) loadNews();
 }
 
 loadStatus();
